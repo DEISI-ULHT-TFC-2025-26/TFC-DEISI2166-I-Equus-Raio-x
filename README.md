@@ -30,6 +30,7 @@ Este notebook realiza uma análise exploratória dos dados, incluindo:
 - Visualização e análise geral dos dados
 - Correção dos dados
 - Separação dos dados treino/teste
+
 **Requisitos:**
 Os dados devem estar nas pastas:
 - Dados
@@ -41,6 +42,7 @@ Contém a função run, que:
 - Recebe parâmetros de configuração do treino
 - Executa múltiplos treinos
 - Avalia os modelos com base no F1-score
+
 Permite treinar com:
 - Dados reais
 - Data augmentation simples
@@ -51,6 +53,7 @@ Notebook com:
 - Tabelas de resultados
 - Comparação entre modelos
 - Análise dos efeitos de data augmentation
+
 Para executar o ficheiro TFC_codigo.ipynb será necessário rodar o arquivo melhores_modelos.py caso ainda não existam os ficheiros CSV necessários.
 
 
@@ -66,13 +69,16 @@ Esta função divide os dados em 80/20 treino e teste e guarda tudo em uma nova 
 Aplica transformações aos dados:
 - train_transforms
 - test_transforms
+
 Cria batches de tamanho 16.
+
 **Requisitos:**
 Os dados devem estar nas pastas:
 - dados_split
 
 ### best_epoch
 Esta função treina e testa um modelo a cada epoch para achar a epoch com o melhor valor de f1.
+
 **Parâmetros:**
 - path = nome da pasta onde este irá guardar os modelos
 - nome = nome do modelo
@@ -82,6 +88,7 @@ Esta função treina e testa um modelo a cada epoch para achar a epoch com o mel
 - train_loader = os dados de treino após sofrerem com os métodos de transformação de dados.
 - test_loader = os dados de teste após sofrerem com os métodos de transformação de dados.
 - num_epochs = numero de epochs total que o modelo deve treinar
+
 **Esta retorna:**
 - best_prev = lista das classes previstas pelo modelo
 - best_real = lista das classes reais das imagens
@@ -94,6 +101,7 @@ Esta função:
 - Cria gráfico com os valores de f1/epoch
 - Cria uma matriz de confusão
 - Atualiza um dataframe com os valores das métricas calculadas
+
 **Parâmetros:**
 - path = nome da pasta onde este irá guardar os modelos
 - nome = nome do modelo
@@ -106,10 +114,12 @@ Esta função:
 
 ### modelos
 Função que cria um modelo que será posteriormente treinado
+
 **Parâmetros:**
 - model_name = nome do modelo
 - learning_rate = O learning rate na qual a função terá que treinar com
 - optim = O otimizador da função.
+
 **Este retorna:**
 - model = A arquitetura do modelo
 - optimizer = O otimizador
@@ -117,6 +127,7 @@ Função que cria um modelo que será posteriormente treinado
 
 ### get_head_params
 Função que dependendo do modelo indicado, retorna a camada final do modelo
+
 **Parâmetros:**
 - model = A arquitetura do modelo
 - model_name = O nome do modelo
@@ -126,6 +137,7 @@ Função que dependendo do modelo indicado, retorna a camada final do modelo
 Função que concatena todas as funções a cima em uma só função
 Esta função cria a arquitetura, treina a mesma e depois calcula suas métricas
 Cria um CSV com as métricas do modelo treinado e os modelos anteriormente treinados
+
 **Parâmetros:**
 - path = nome da pasta onde este irá guardar os modelos
 - file_path = O nome do arquivo csv que será criado
