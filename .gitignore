@@ -1,0 +1,10 @@
+# Env
+.env
+venv/
+
+# Data
+Dados/
+dados_split/
+
+# PyTorch models
+*.pth
