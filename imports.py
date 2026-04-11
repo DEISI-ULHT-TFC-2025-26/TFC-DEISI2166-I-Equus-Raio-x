@@ -40,7 +40,7 @@ from transformers import AutoModel
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score ,confusion_matrix, ConfusionMatrixDisplay
-from PIL import Image 
+from PIL import Image, ExifTags
 from collections import Counter
 
 
