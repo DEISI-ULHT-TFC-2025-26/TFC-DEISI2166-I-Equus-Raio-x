@@ -13,7 +13,9 @@ import time
 import numpy as np
 import timm
 import copy
+import glob
 import torch.nn.functional as F
+from ultralytics import YOLO
 from torchvision.models import (
     resnet18, resnet50, 
     vit_b_32, 
@@ -42,6 +44,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score ,confusion_matrix, ConfusionMatrixDisplay
 from PIL import Image, ExifTags
 from collections import Counter
+from ultralytics import YOLO
+from multiprocessing import freeze_support
+from adan_pytorch import Adan
+
+
 
 
 ###################################
@@ -49,20 +56,32 @@ from collections import Counter
 ###################################
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-num_classes = 8 
+num_classes = 4
 
-seed = [42, 43, 44, 45]
+SEED = [42, 43, 44, 45]
 
 ###################################
 #   Definições                    #
 ###################################
+transforms_0 = v2.Compose([
+    v2.Resize(size=(224, 224)),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
+    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
 
-model_names = ["resnet18", "resnet50", "vit", "mobilenet_v3_small", "googlenet", "dino_vit", "vgg11", "convnext_tiny", "convnext_small", "convnext_base", "efficientnet_v2_s", "efficientnet_v2_m", "densenet121", "se_resnext50","nasnet_large"]
+model_names = ["resnet18", "resnet50", "vit", "mobilenet_v3_small", "googlenet", "dino_vit", "vgg11", "convnext_tiny", "convnext_small", "convnext_base", "efficientnet_v2_s", "efficientnet_v2_m", "densenet121", "se_resnext50","nasnet_large", "YOLOm", "YOLOn"]
+model_names = ["YOLOm", "YOLOn"]
+#"resnet18", "googlenet","vgg11","dino_vit",,"vit",
+#
+
 BASE_CONFIG = {
-    "num_epochs": 200,
     "learning_rate": 1e-3,
     "optimizer": "AdamW",
-    "loss_type": "cross_entropy"
+    "loss_type": "crossEntropy",
+    "scheduler": None,
+    "train_transform" : transforms_0,
+    "test_transform" : transforms_0,
 }
 
 modelos_config = {
@@ -70,80 +89,68 @@ modelos_config = {
     for name in model_names
 }
 
-modelos_config["resnet18"]["num_epochs"] = 135
-modelos_config["resnet50"]["num_epochs"] = 180
-modelos_config["vit"]["num_epochs"] = 180
-modelos_config["mobilenet_v3_small"]["num_epochs"] = 85
-modelos_config["googlenet"]["num_epochs"] = 150
-modelos_config["dino_vit"]["num_epochs"] = 130
-modelos_config["vgg11"]["num_epochs"] = 120
-modelos_config["convnext_tiny"]["num_epochs"] = 100
-modelos_config["convnext_small"]["num_epochs"] = 120
-modelos_config["convnext_base"]["num_epochs"] = 170
-modelos_config["efficientnet_v2_s"]["num_epochs"] = 120
-modelos_config["efficientnet_v2_m"]["num_epochs"] = 145
-modelos_config["densenet121"]["num_epochs"] = 95
-modelos_config["se_resnext50"]["num_epochs"] = 160
-modelos_config["nasnet_large"]["num_epochs"] = 200
-
 
 ###################################
 #   Métodos de data augmentation  #
 ###################################
 
-transforms_0 = v2.Compose([
-    v2.Resize(size=(224, 224)),
-    v2.ToTensor(),
-    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
-
 training_transforms_1 = v2.Compose([
     v2.Resize(size=(224, 224)),
     v2.RandomRotation(10),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 training_transforms_2 = v2.Compose([
     v2.Resize(size=(224, 224)),
     v2.ColorJitter(brightness=0.2,contrast=0.2,saturation=0.2,hue=0.05),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 training_transforms_3 = v2.Compose([
     v2.RandomResizedCrop(224, scale=(0.8, 1.0)),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 training_transforms_4 = v2.Compose([
     v2.Resize(size=(224, 224)),
     v2.RandomHorizontalFlip(p=0.5),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 training_transforms_5 = v2.Compose([
     v2.Resize(size=(224, 224)),
     v2.RandomAffine(degrees=10,translate=(0.1, 0.1),scale=(0.9, 1.1),shear=5),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 training_transforms_6 = v2.Compose([
     v2.Resize(size=(224, 224)),
     v2.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
+
+
+##############
 
 training_transforms_final1 = v2.Compose([
     v2.RandomResizedCrop(224, scale=(0.8,1.0)),
     v2.RandomRotation(10),
     v2.RandomAffine(degrees=10,translate=(0.1, 0.1),scale=(0.9, 1.1),shear=5),
     v2.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485,0.456,0.406],
                  std=[0.229,0.224,0.225])
 ])
@@ -152,7 +159,8 @@ training_transforms_final2 = v2.Compose([
     v2.RandomResizedCrop(224, scale=(0.8,1.0)),
     v2.RandomRotation(10),
     v2.RandomAffine(degrees=10,translate=(0.1, 0.1),scale=(0.9, 1.1),shear=5),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485,0.456,0.406],
                  std=[0.229,0.224,0.225])
 ])
@@ -160,7 +168,8 @@ training_transforms_final2 = v2.Compose([
 training_transforms_final3 = v2.Compose([
     v2.RandomResizedCrop(224, scale=(0.9,1.0)),
     v2.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
@@ -168,7 +177,23 @@ training_transforms_final4 = v2.Compose([
     v2.RandomResizedCrop(224, scale=(0.9,1.0)),
     v2.RandomAffine(degrees=10,translate=(0.1, 0.1),scale=(0.9, 1.1),shear=5),
 
-    v2.ToTensor(),
+    v2.ToImage(),
+    v2.ToDtype(torch.float32, scale=True),
     v2.Normalize(mean=[0.485,0.456,0.406],
                  std=[0.229,0.224,0.225])
 ])
+#################
+
+TRANSFORMS = {
+    "controlo": transforms_0,
+    "augmentation_1": training_transforms_1,
+    "augmentation_2": training_transforms_2,
+    "augmentation_3": training_transforms_3,
+    "augmentation_4": training_transforms_4,
+    "augmentation_5": training_transforms_5,
+    "augmentation_6": training_transforms_6,
+    "augmentation_final1": training_transforms_final1,
+    "augmentation_final2": training_transforms_final2,
+    "augmentation_final3": training_transforms_final3,
+    "augmentation_final4": training_transforms_final4,
+}
